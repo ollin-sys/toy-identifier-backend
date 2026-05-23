@@ -1,0 +1,70 @@
+import os
+from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from google import genai
+from google.genai import types
+from PIL import Image
+import io
+
+app = FastAPI()
+
+# This allows your future frontend website to talk to this backend
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"], # In production, you'll change this to your website's URL
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Initialize the Gemini Client
+# Railway will automatically pass the API key here once we set it up
+client = genai.Client()
+
+# Define the structured data we want back about the action figure
+class FigureIdentity(types.BaseModel):
+    character_name: str
+    toy_line: str          
+    manufacturer: str      
+    release_year: str      
+    variant_details: str   
+    confidence_score: float
+
+@app.get("/")
+def home():
+    return {"message": "Toy Identifier API is running!"}
+
+@app.post("/identify")
+async def identify_toy(file: UploadFile = File(...)):
+    # 1. Read the uploaded image file
+    try:
+        image_bytes = await file.read()
+        img = Image.open(io.BytesIO(image_bytes))
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid image file.")
+
+    # 2. Configure the AI prompt and instructions
+    system_instruction = (
+        "You are an expert action figure archivist. Analyze images of action figures "
+        "and provide hyper-specific identification details, paying close attention to paint, "
+        "sculpts, and variants."
+    )
+    
+    prompt = "Identify this action figure. Provide the character, toy line, manufacturer, year, and specific variant details."
+
+    # 3. Call the Gemini API
+    try:
+        response = client.models.generate_content(
+            model='gemini-3.5-flash',
+            contents=[img, prompt],
+            config=types.GenerateContentConfig(
+                system_instruction=system_instruction,
+                response_mime_type="application/json",
+                response_schema=FigureIdentity,
+                temperature=0.1
+            ),
+        )
+        # Return the structured JSON directly to the frontend
+        return response.text
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
