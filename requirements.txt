@@ -3,4 +3,4 @@ uvicorn
 google-genai
 pillow
 python-multipart
-uvicorn
+pydantic
