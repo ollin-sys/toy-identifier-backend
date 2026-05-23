@@ -68,7 +68,7 @@ async def identify_toy(file: UploadFile = File(...)):
         return response.text
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-  if __name__ == "__main__":
+if __name__ == "__main__":
     import uvicorn
     import os
     port = int(os.environ.get("PORT", 8080))
