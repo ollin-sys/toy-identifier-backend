@@ -31,21 +31,43 @@ def home():
 
 @app.post("/identify")
 async def identify_toy(file: UploadFile = File(...)):
-    # 1. Read the uploaded image file
+    print(f"📦 Received file upload: {file.filename}, content_type: {file.content_type}")
+    
+    # 1. Read the raw image bytes
     try:
         image_bytes = await file.read()
-        img = Image.open(io.BytesIO(image_bytes))
-    except Exception:
-        raise HTTPException(status_code=400, detail="Invalid image file.")
+        if not image_bytes:
+            print("❌ Error: The uploaded file file is empty.")
+            raise HTTPException(status_code=400, detail="Uploaded file is empty.")
+    except Exception as e:
+        print(f"❌ Error reading file bytes: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to read file.")
 
-    # 2. Configure the AI prompt and instructions
-    system_instruction = (
-        "You are an expert action figure archivist. Analyze images of action figures "
-        "and provide hyper-specific identification details, paying close attention to paint, "
-        "sculpts, and variants."
-    )
-    
-    prompt = "Identify this action figure. Provide the character, toy line, manufacturer, year, and specific variant details."
+    # 2. Call the Gemini Vision API
+    try:
+        print("🤖 Sending image bytes over to Gemini...")
+        client = genai.Client() # Picks up your GEMINI_API_KEY env variable automatically
+        
+        response = client.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=[
+                types.Part.from_bytes(
+                    data=image_bytes,
+                    mime_type=file.content_type or "image/jpeg",
+                ),
+                "Identify this action figure, LEGO minifigure, or toy. Provide details matching the structural schema."
+            ],
+            config=types.GenerateContentConfig(
+                response_mime_type="application/json",
+                response_schema=FigureIdentity,
+            ),
+        )
+        print("✅ Gemini successfully returned structured data!")
+        return response.text
+        
+    except Exception as e:
+        print(f"❌ Gemini API Error crash: {str(e)}")
+        raise HTTPException(status_code=400, detail=f"Gemini processing failed: {str(e)}")
 
     # 3. Call the Gemini API
     try:
