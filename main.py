@@ -1,33 +1,28 @@
 import os
-from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi import FastAPI, File, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 from google import genai
 from google.genai import types
-from PIL import Image
-import io
 
 app = FastAPI()
 
-# This allows your future frontend website to talk to this backend
+# Enable CORS so your desktop index.html can talk to Railway
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # In production, you'll change this to your website's URL
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Initialize the Gemini Client
-# Railway will automatically pass the API key here once we set it up
-client = genai.Client()
-
-# Define the structured data we want back about the action figure
-class FigureIdentity(types.BaseModel):
+# Define our structured output schema using Pydantic
+class FigureIdentity(BaseModel):
     character_name: str
-    toy_line: str          
-    manufacturer: str      
-    release_year: str      
-    variant_details: str   
+    toy_line: str
+    manufacturer: str
+    release_year: str
+    variant_details: str
     confidence_score: float
 
 @app.get("/")
