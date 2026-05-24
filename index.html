@@ -1,6 +1,35 @@
-<script src="catalog.js"></script>
+// Look for this function inside your index.html script block:
+function renderCatalogGridUI() {
+    catalogGrid.innerHTML = '';
+    const keyword = catalogSearch.value.toLowerCase().trim();
+    const selectedFilter = catalogLineFilter.value;
 
-<script>
-    const BACKEND_URL = "https://toy-identifier-backend-production.up.railway.app"; 
+    // 🌟 IMPORTANT: Make sure this says "window.MASTER_CATALOG_DATA" 
+    const filteredData = window.MASTER_CATALOG_DATA.filter(item => {
+        const matchesKeyword = item.name.toLowerCase().includes(keyword) || item.mfg.toLowerCase().includes(keyword);
+        const matchesFilter = selectedFilter === "ALL" || item.line === selectedFilter;
+        return matchesKeyword && matchesFilter;
+    });
 
-    // ... (Rest of your script code, using window.MASTER_CATALOG_DATA)
+    if (filteredData.length === 0) {
+        catalogGrid.innerHTML = `<p style="grid-column: 1/-1; text-align: center; color: var(--text-muted); padding: 20px 0;">No matching database assets cataloged.</p>`;
+        return;
+    }
+
+    filteredData.forEach(item => {
+        const card = document.createElement('div');
+        card.classList.add('item-display-card');
+        card.innerHTML = `
+            <div class="item-thumb">${item.icon}</div>
+            <div class="item-details">
+                <div style="display: flex; align-items: center; width: 100%;">
+                    <h5>${item.name}</h5>
+                    <span class="rarity-badge rarity-${item.rarity}">${item.rarity}</span>
+                </div>
+                <p>${item.mfg} • ${item.year}</p>
+                <div class="item-tag">${item.line}</div>
+            </div>
+        `;
+        catalogGrid.appendChild(card);
+    });
+}
