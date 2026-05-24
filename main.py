@@ -12,12 +12,19 @@ from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 
-# 1. Custom Secure Handshake Rule
-def is_premium_user(request: Request) -> bool:
+# 1. Custom Secure Handshake Rule (Updated to fix slowapi TypeError)
+def is_premium_user(*args, **kwargs) -> bool:
     """
     Validates if the incoming request genuinely qualifies for Premium tier bypass.
-    Checks for the structural handshake token assigned in Railway environment variables.
+    Safely captures the request object passed dynamically by slowapi.
     """
+    # slowapi usually passes the request inside kwargs, or as the first element in args
+    request: Request = kwargs.get("request") or (args[0] if args else None)
+    
+    if not request:
+        print("⚠️ slowapi exemption check could not resolve the Request object.")
+        return False
+
     user_tier = request.headers.get("x-user-tier", "free").lower()
     handshake_token = request.headers.get("x-auth-token", "")
     
@@ -25,7 +32,9 @@ def is_premium_user(request: Request) -> bool:
     master_premium_key = os.environ.get("FIGSEEKER_PREMIUM_KEY", "FIGSEEKER_PREMIUM_KEY_Pa$$1")
     
     if user_tier == "premium" and handshake_token == master_premium_key:
+        print("✨ Premium Handshake Verified! Exempting from rate limits.")
         return True
+        
     return False
 
 # Initialize the limiter cleanly using the user's remote IP address
