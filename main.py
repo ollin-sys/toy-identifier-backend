@@ -1,5 +1,7 @@
 import os
+import json
 from fastapi import FastAPI, File, UploadFile, HTTPException
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from google import genai
@@ -37,13 +39,13 @@ async def identify_toy(file: UploadFile = File(...)):
     try:
         image_bytes = await file.read()
         if not image_bytes:
-            print("❌ Error: The uploaded file file is empty.")
+            print("❌ Error: The uploaded file is empty.")
             raise HTTPException(status_code=400, detail="Uploaded file is empty.")
     except Exception as e:
         print(f"❌ Error reading file bytes: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to read file.")
 
-    # 2. Call the Gemini Vision API
+    # 2. Call the Gemini Vision API and parse structured output
     try:
         print("🤖 Sending image bytes over to Gemini...")
         client = genai.Client() # Picks up your GEMINI_API_KEY env variable automatically
@@ -62,31 +64,19 @@ async def identify_toy(file: UploadFile = File(...)):
                 response_schema=FigureIdentity,
             ),
         )
-        print("✅ Gemini successfully returned structured data!")
-        return response.text
+        print("✅ Gemini successfully returned structured data string!")
+        
+        # Parse the structural response text string into native JSON object
+        structured_json = json.loads(response.text)
+        
+        # Return the clean object wrapped in a FastAPI JSONResponse
+        return JSONResponse(content=structured_json)
         
     except Exception as e:
         print(f"❌ Gemini API Error crash: {str(e)}")
         raise HTTPException(status_code=400, detail=f"Gemini processing failed: {str(e)}")
 
-    # 3. Call the Gemini API
-    try:
-        response = client.models.generate_content(
-            model='gemini-3.5-flash',
-            contents=[img, prompt],
-            config=types.GenerateContentConfig(
-                system_instruction=system_instruction,
-                response_mime_type="application/json",
-                response_schema=FigureIdentity,
-                temperature=0.1
-            ),
-        )
-        # Return the structured JSON directly to the frontend
-        return response.text
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
 if __name__ == "__main__":
     import uvicorn
-    import os
     port = int(os.environ.get("PORT", 8080))
     uvicorn.run("main:app", host="0.0.0.0", port=port)
