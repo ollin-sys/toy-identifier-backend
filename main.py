@@ -1,7 +1,7 @@
 import os
 import json
 from fastapi import FastAPI, File, UploadFile, HTTPException, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from google import genai
@@ -79,9 +79,14 @@ class FigureIdentity(BaseModel):
     variant_details: str
     confidence_score: float
 
+# --- MODIFIED HOME ROUTE TO SERVE FRONTEND DASHBOARD ---
 @app.get("/")
 def home():
-    return {"message": "Toy Identifier API running securely in production!"}
+    """
+    Reads and delivers the index.html user interface page 
+    automatically whenever the primary backend root URL is loaded.
+    """
+    return FileResponse("index.html")
 
 # Public rate limits: 3 per hour AND 10 per day handled safely by slowapi decorator
 @app.post("/identify")
