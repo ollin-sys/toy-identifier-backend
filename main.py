@@ -18,13 +18,12 @@ def is_premium_user(request: Request) -> bool:
     Validates if the incoming request genuinely qualifies for Premium tier bypass.
     Checks for the structural handshake token assigned in Railway environment variables.
     """
-    user_tier = request.headers.get("x-user-tier", "free")
+    user_tier = request.headers.get("x-user-tier", "free").lower()
     handshake_token = request.headers.get("x-auth-token", "")
     
-    # Pull the master master key stored safely in your backend dashboard
-    master_premium_key = os.environ.get("FIGSEEKER_PREMIUM_KEY", "fallback_local_testing_key")
+    # Matches the exact variable name and has a solid fallback for safety
+    master_premium_key = os.environ.get("FIGSEEKER_PREMIUM_KEY", "FIGSEEKER_PREMIUM_KEY_Pa$$1")
     
-    # To bypass the rate limiter, they must match BOTH criteria
     if user_tier == "premium" and handshake_token == master_premium_key:
         return True
     return False
@@ -40,7 +39,7 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 # Enable CORS so your desktop dashboard or domain can communicate safely
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # When your custom domain is ready, swap "*" to ["https://figseeker.com"]
+    allow_origins=["*"],  
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -58,7 +57,7 @@ class FigureIdentity(BaseModel):
 def home():
     return {"message": "Toy Identifier API running securely in production!"}
 
-# Public rate limits: 3 per hour AND 10 per day (Exempt condition attached directly here)
+# Public rate limits: 3 per hour AND 10 per day
 @app.post("/identify")
 @limiter.limit("3/hour;10/day", exempt_when=is_premium_user)
 async def identify_toy(request: Request, file: UploadFile = File(...)):
@@ -73,14 +72,20 @@ async def identify_toy(request: Request, file: UploadFile = File(...)):
         print(f"❌ Error reading file bytes: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to read file.")
 
-    # Call the Gemini Vision API
+    # Call the Gemini Vision API asynchronously
     try:
-        print("🤖 Sending image bytes over to Gemini...")
+        print("🤖 Initializing Asynchronous Gemini Client...")
         
-        # Explicitly letting the Client look for GEMINI_API_KEY inside system environment variables
-        client = genai.Client()
+        # Check for API key explicitly to prevent low-level driver crashes
+        if not os.environ.get("GEMINI_API_KEY"):
+            print("❌ CRITICAL: GEMINI_API_KEY variable is missing from the environment!")
+            raise HTTPException(status_code=500, detail="Server configuration error: Missing API Key.")
+
+        # Switch to ClientAsync to preserve FastAPI's event loop
+        client = genai.ClientAsync()
         
-        response = client.models.generate_content(
+        print("🤖 Sending image bytes over to Gemini async channel...")
+        response = await client.models.generate_content(
             model='gemini-2.5-flash',
             contents=[
                 types.Part.from_bytes(
@@ -101,7 +106,9 @@ async def identify_toy(request: Request, file: UploadFile = File(...)):
         
     except Exception as e:
         print(f"❌ Gemini API Error crash: {str(e)}")
-        raise HTTPException(status_code=400, detail=f"Gemini processing failed: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Gemini processing failed: {str(e)}")
 
 if __name__ == "__main__":
     import uvicorn
