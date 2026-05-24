@@ -8,3 +8,4 @@ window.MASTER_CATALOG_DATA = [
     { name: "MechaGodzilla (1974 Retro Classic)", line: "Mecha Waves", mfg: "Toho Vinyls", year: "2022", rarity: "common", icon: "mechanical_arm" },
     { name: "Ditto (Snorlax Costume Variant)", line: "Kanto Region", mfg: "PokéCenter Imports", year: "2026", rarity: "grail", icon: "black_joker" }
 ];
+
