@@ -57,8 +57,8 @@ async def identify_toy(request: Request, file: UploadFile = File(...)):
         # 2. RUN MANUAL SLOWAPI EVALUATION FOR FREE-TIER USERS
         print("👤 Free tier user detected. Checking rate limit allocations...")
         try:
-            # Safely trigger your 3 requests/hour or 10 requests/day thresholds manually
-            limiter.check(request, "identify_toy", "3/hour;10/day")
+            # Fixed: slowapi uses limit_value() to manually test a request context against a rule string
+            limiter.limit_value(request, "identify_toy", "3/hour;10/day")
         except RateLimitExceeded:
             print(f"⚠️ Rate limit tripped for IP {get_remote_address(request)}!")
             raise HTTPException(status_code=429, detail="Rate limit exceeded: 3 per hour or 10 per day.")
