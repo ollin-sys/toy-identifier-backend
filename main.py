@@ -29,8 +29,8 @@ def is_premium_user(request: Request) -> bool:
         return True
     return False
 
-# Initialize the limiter using the user's remote IP address
-limiter = Limiter(key_func=get_remote_address, exempt_when=is_premium_user)
+# Initialize the limiter cleanly using the user's remote IP address
+limiter = Limiter(key_func=get_remote_address)
 app = FastAPI()
 
 # Attach the limiter to FastAPI's error handler
@@ -58,9 +58,9 @@ class FigureIdentity(BaseModel):
 def home():
     return {"message": "Toy Identifier API running securely in production!"}
 
-# Public rate limits: 3 per hour AND 10 per day (Bypassed if handshake is valid)
+# Public rate limits: 3 per hour AND 10 per day (Exempt condition attached directly here)
 @app.post("/identify")
-@limiter.limit("3/hour;10/day")
+@limiter.limit("3/hour;10/day", exempt_when=is_premium_user)
 async def identify_toy(request: Request, file: UploadFile = File(...)):
     print(f"📦 Scan request received from IP: {get_remote_address(request)}")
     
