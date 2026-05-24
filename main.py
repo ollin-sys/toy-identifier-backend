@@ -12,31 +12,6 @@ from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 
-# 1. Custom Secure Handshake Rule (Updated to fix slowapi TypeError)
-def is_premium_user(*args, **kwargs) -> bool:
-    """
-    Validates if the incoming request genuinely qualifies for Premium tier bypass.
-    Safely captures the request object passed dynamically by slowapi.
-    """
-    # slowapi usually passes the request inside kwargs, or as the first element in args
-    request: Request = kwargs.get("request") or (args[0] if args else None)
-    
-    if not request:
-        print("⚠️ slowapi exemption check could not resolve the Request object.")
-        return False
-
-    user_tier = request.headers.get("x-user-tier", "free").lower()
-    handshake_token = request.headers.get("x-auth-token", "")
-    
-    # Matches the exact variable name and has a solid fallback for safety
-    master_premium_key = os.environ.get("FIGSEEKER_PREMIUM_KEY", "FIGSEEKER_PREMIUM_KEY_Pa$$1")
-    
-    if user_tier == "premium" and handshake_token == master_premium_key:
-        print("✨ Premium Handshake Verified! Exempting from rate limits.")
-        return True
-        
-    return False
-
 # Initialize the limiter cleanly using the user's remote IP address
 limiter = Limiter(key_func=get_remote_address)
 app = FastAPI()
@@ -66,13 +41,29 @@ class FigureIdentity(BaseModel):
 def home():
     return {"message": "Toy Identifier API running securely in production!"}
 
-# Public rate limits: 3 per hour AND 10 per day
+# Fixed: Removed the decorator syntax completely to stop slowapi's signature issues.
 @app.post("/identify")
-@limiter.limit("3/hour;10/day", exempt_when=is_premium_user)
 async def identify_toy(request: Request, file: UploadFile = File(...)):
     print(f"📦 Scan request received from IP: {get_remote_address(request)}")
     
-    # Read the raw image bytes
+    # 1. EVALUATE PREMIUM HANDSHAKE MANUALLY 
+    user_tier = request.headers.get("x-user-tier", "free").lower()
+    handshake_token = request.headers.get("x-auth-token", "")
+    master_premium_key = os.environ.get("FIGSEEKER_PREMIUM_KEY", "FIGSEEKER_PREMIUM_KEY_Pa$$1")
+
+    if user_tier == "premium" and handshake_token == master_premium_key:
+        print("✨ Premium Handshake Verified! Exempting from rate limits.")
+    else:
+        # 2. RUN MANUAL SLOWAPI EVALUATION FOR FREE-TIER USERS
+        print("👤 Free tier user detected. Checking rate limit allocations...")
+        try:
+            # Safely trigger your 3 requests/hour or 10 requests/day thresholds manually
+            limiter.check(request, "identify_toy", "3/hour;10/day")
+        except RateLimitExceeded:
+            print(f"⚠️ Rate limit tripped for IP {get_remote_address(request)}!")
+            raise HTTPException(status_code=429, detail="Rate limit exceeded: 3 per hour or 10 per day.")
+
+    # 3. READ THE RAW IMAGE BYTES
     try:
         image_bytes = await file.read()
         if not image_bytes:
@@ -81,20 +72,19 @@ async def identify_toy(request: Request, file: UploadFile = File(...)):
         print(f"❌ Error reading file bytes: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to read file.")
 
-    # Call the Gemini Vision API asynchronously
+    # 4. CALL THE GEMINI VISION API ASYNCHRONOUSLY
     try:
-        print("🤖 Initializing Asynchronous Gemini Client...")
-        
         # Check for API key explicitly to prevent low-level driver crashes
         if not os.environ.get("GEMINI_API_KEY"):
             print("❌ CRITICAL: GEMINI_API_KEY variable is missing from the environment!")
             raise HTTPException(status_code=500, detail="Server configuration error: Missing API Key.")
 
-        # Switch to ClientAsync to preserve FastAPI's event loop
-        client = genai.ClientAsync()
+        print("🤖 Initializing Google GenAI Client...")
+        client = genai.Client()
         
-        print("🤖 Sending image bytes over to Gemini async channel...")
-        response = await client.models.generate_content(
+        print("🤖 Sending image bytes over to Gemini async channel via client.aio...")
+        # Fixed: Using client.aio for official asynchronous generation routines
+        response = await client.aio.models.generate_content(
             model='gemini-2.5-flash',
             contents=[
                 types.Part.from_bytes(
