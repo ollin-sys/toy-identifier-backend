@@ -1,4 +1,5 @@
 // Look for this function inside your index.html script block:
+<script>
 function renderCatalogGridUI() {
     catalogGrid.innerHTML = '';
     const keyword = catalogSearch.value.toLowerCase().trim();
@@ -33,3 +34,4 @@ function renderCatalogGridUI() {
         catalogGrid.appendChild(card);
     });
 }
+</script>
