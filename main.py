@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from google import genai
 from google.genai import types
+from fastapi.staticfiles import StaticFiles
 
 # Import the rate limiting tools
 from slowapi import Limiter, _rate_limit_exceeded_handler
@@ -54,9 +55,10 @@ def is_premium_user() -> bool:
 # Initialize the limiter cleanly using the user's remote IP address
 limiter = Limiter(key_func=get_remote_address)
 app = FastAPI()
-
+app.mount("/", StaticFiles(directory=".", html=True), name="static")
 # Register the ContextVar middleware first
 app.add_middleware(RequestStateMiddleware)
+
 
 # Attach the limiter to FastAPI's error handler
 app.state.limiter = limiter
@@ -80,16 +82,8 @@ class FigureIdentity(BaseModel):
     confidence_score: float
 
 # --- MODIFIED HOME ROUTE TO SERVE FRONTEND DASHBOARD ---
-@app.get("/")
-def home():
-    """
-    Reads and delivers the index.html user interface page 
-    automatically whenever the primary backend root URL is loaded.
-    """
-    return FileResponse("index.html")
-
-# Public rate limits: 3 per hour AND 10 per day handled safely by slowapi decorator
 @app.post("/identify")
+# Public rate limits: 3 per hour AND 10 per day handled safely by slowapi decorator
 @limiter.limit("3/hour;10/day", exempt_when=is_premium_user)
 async def identify_toy(request: Request, file: UploadFile = File(...)):
     print(f"📦 Scan request received from IP: {get_remote_address(request)}")
@@ -114,7 +108,7 @@ async def identify_toy(request: Request, file: UploadFile = File(...)):
         
         print("🤖 Sending image bytes over to Gemini async channel via client.aio...")
         response = await client.aio.models.generate_content(
-            model='gemini-2.5-flash',
+            model='gemini-2.0-flash',
             contents=[
                 types.Part.from_bytes(
                     data=image_bytes,
