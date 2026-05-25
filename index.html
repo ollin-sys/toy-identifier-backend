@@ -404,7 +404,25 @@
         let collectionMaxLimit = 20; 
         let scannedCollectionHistory = [];
 
-       
+       JavaScript
+
+	async function handlePayment(productId) {
+   	 try {
+        const response = await fetch('/create-checkout-session', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ product_id: productId })
+        });
+
+        if (!response.ok) throw new Error("Server error");
+
+        const data = await response.json();
+        window.location.href = data.url;
+    } catch (error) {
+        console.error("Payment initiation failed:", error);
+        alert("Could not start payment. Please try again later.");
+    }
+}
 
         // ================= VIEW NAVIGATION MANAGEMENT =================
         function switchView(activeNav, activeView) {
@@ -566,8 +584,8 @@
         proUpgradeBtn.addEventListener('click', () => {
             isUserPremium = !isUserPremium; 
             if (isUserPremium) {
-                document.querySelectorAll('.community-ad-zone').forEach(zone => zone.style.display = 'none');
-                collectionMaxLimit = 1000;
+                activeNav.classList.add('active');
+    			activeView.classList.add('active-view');
 
                 proUpgradeBtn.innerText = "✨ Vault Unlocked (1,000 Slots)";
                 proUpgradeBtn.style.background = "linear-gradient(90deg, #14b8a6 0%, #0d9488 100%)";
