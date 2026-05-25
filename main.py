@@ -3,9 +3,7 @@ import json
 import uvicorn
 import contextvars
 import stripe
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
-from fastapi import FastAPI, UploadFile, File, Request, HTTPException
+from fastapi import FastAPI, UploadFile, File, Request, HTTPException, status
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
@@ -17,12 +15,12 @@ from slowapi.errors import RateLimitExceeded
 from google import genai
 from google.genai import types
 
+# Initialize Stripe
 stripe.api_key = os.environ.get("STRIPE_SECRET_KEY")
 
 class CheckoutRequest(BaseModel):
     product_id: str
 
-# --- Pydantic Model ---
 class FigureIdentity(BaseModel):
     character_name: str
     toy_line: str
@@ -47,10 +45,13 @@ def is_premium_user() -> bool:
         request: Request = _current_request.get()
     except LookupError:
         return False
+    
     user_tier = request.headers.get("x-user-tier", "free").lower()
     handshake_token = request.headers.get("x-auth-token", "")
-    master_key = os.environ.get("FIGSEEKER_PREMIUM_KEY", "FIGSEEKER_PREMIUM_KEY_Pa$$1")
-    return user_tier == "premium" and handshake_token == master_key
+    # REMOVED: hardcoded fallback key for security
+    master_key = os.environ.get("FIGSEEKER_PREMIUM_KEY")
+    
+    return user_tier == "premium" and handshake_token == master_key and master_key is not None
 
 limiter = Limiter(key_func=get_remote_address)
 app = FastAPI()
@@ -64,11 +65,10 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 @app.post("/create-checkout-session")
 async def create_checkout(request: CheckoutRequest):
     try:
-        # Create the session
         session = stripe.checkout.Session.create(
             payment_method_types=['card'],
             line_items=[{
-                'price': request.product_id, # Use a Price ID from your Stripe dashboard
+                'price': request.product_id,
                 'quantity': 1,
             }],
             mode='payment',
@@ -77,20 +77,25 @@ async def create_checkout(request: CheckoutRequest):
         )
         return {"url": session.url}
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Checkout failed")
+
 @app.post("/identify")
 @limiter.limit("3/hour;10/day", exempt_when=is_premium_user)
 async def identify_toy(request: Request, file: UploadFile = File(...)):
+    # Validate file type
+    if file.content_type not in ["image/jpeg", "image/png", "image/webp"]:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Unsupported file format.")
+
     image_bytes = await file.read()
     if not image_bytes:
-        raise HTTPException(status_code=400, detail="Uploaded file is empty.")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Uploaded file is empty.")
 
     try:
         client = genai.Client()
         response = await client.aio.models.generate_content(
             model='gemini-3.5-flash',
             contents=[
-                types.Part.from_bytes(data=image_bytes, mime_type=file.content_type or "image/jpeg"),
+                types.Part.from_bytes(data=image_bytes, mime_type=file.content_type),
                 "Identify this action figure or toy. Provide details matching the structural schema."
             ],
             config=types.GenerateContentConfig(
@@ -100,10 +105,10 @@ async def identify_toy(request: Request, file: UploadFile = File(...)):
         )
         return JSONResponse(content=json.loads(response.text))
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Gemini processing failed: {str(e)}")
+        # Log 'e' here in a real production environment
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Identification service unavailable.")
 
-
-# --- Static Files (Must be last) ---
+# --- Static Files ---
 app.mount("/", StaticFiles(directory=".", html=True), name="static")
 
 if __name__ == "__main__":
