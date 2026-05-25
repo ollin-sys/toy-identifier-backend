@@ -1,12 +1,18 @@
-// Look for this function inside your index.html script block:
 <script src="catalog.js"></script>
 <script>
+// 1. Define the function first (do not run it yet)
 function renderCatalogGridUI() {
+    const catalogGrid = document.getElementById('catalogGrid');
+    const catalogSearch = document.getElementById('catalogSearch');
+    const catalogLineFilter = document.getElementById('catalogLineFilter');
+    
+    // Safety check: exit if elements don't exist yet
+    if (!catalogGrid || !catalogSearch) return;
+
     catalogGrid.innerHTML = '';
     const keyword = catalogSearch.value.toLowerCase().trim();
     const selectedFilter = catalogLineFilter.value;
 
-    // 🌟 IMPORTANT: Make sure this says "window.MASTER_CATALOG_DATA" 
     const filteredData = window.MASTER_CATALOG_DATA.filter(item => {
         const matchesKeyword = item.name.toLowerCase().includes(keyword) || item.mfg.toLowerCase().includes(keyword);
         const matchesFilter = selectedFilter === "ALL" || item.line === selectedFilter;
@@ -14,7 +20,7 @@ function renderCatalogGridUI() {
     });
 
     if (filteredData.length === 0) {
-        catalogGrid.innerHTML = `<p style="grid-column: 1/-1; text-align: center; color: var(--text-muted); padding: 20px 0;">No matching database assets cataloged.</p>`;
+        catalogGrid.innerHTML = `<p style="grid-column: 1/-1; text-align: center;">No matching database assets cataloged.</p>`;
         return;
     }
 
@@ -24,15 +30,26 @@ function renderCatalogGridUI() {
         card.innerHTML = `
             <div class="item-thumb">${item.icon}</div>
             <div class="item-details">
-                <div style="display: flex; align-items: center; width: 100%;">
-                    <h5>${item.name}</h5>
-                    <span class="rarity-badge rarity-${item.rarity}">${item.rarity}</span>
-                </div>
+                <h5>${item.name}</h5>
                 <p>${item.mfg} • ${item.year}</p>
-                <div class="item-tag">${item.line}</div>
             </div>
         `;
         catalogGrid.appendChild(card);
     });
 }
+
+// 2. WAIT for the page to be ready before attaching listeners
+document.addEventListener('DOMContentLoaded', () => {
+    // Now it is safe to look for the elements
+    const catalogSearch = document.getElementById('catalogSearch');
+    const catalogLineFilter = document.getElementById('catalogLineFilter');
+
+    if (catalogSearch && catalogLineFilter) {
+        catalogSearch.addEventListener('input', renderCatalogGridUI);
+        catalogLineFilter.addEventListener('change', renderCatalogGridUI);
+        
+        // Run once on load to show initial data
+        renderCatalogGridUI();
+    }
+});
 </script>
