@@ -82,8 +82,8 @@ class FigureIdentity(BaseModel):
     confidence_score: float
 
 # --- MODIFIED HOME ROUTE TO SERVE FRONTEND DASHBOARD ---
+
 @app.post("/identify")
-# Public rate limits: 3 per hour AND 10 per day handled safely by slowapi decorator
 @limiter.limit("3/hour;10/day", exempt_when=is_premium_user)
 async def identify_toy(request: Request, file: UploadFile = File(...)):
     print(f"📦 Scan request received from IP: {get_remote_address(request)}")
