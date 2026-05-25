@@ -62,7 +62,7 @@ async def identify_toy(request: Request, file: UploadFile = File(...)):
     try:
         client = genai.Client()
         response = await client.aio.models.generate_content(
-            model='Gemini 2.5 Flash',
+            model='gemini-3.5-flash',
             contents=[
                 types.Part.from_bytes(data=image_bytes, mime_type=file.content_type or "image/jpeg"),
                 "Identify this action figure or toy. Provide details matching the structural schema."
