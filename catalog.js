@@ -1,3 +1,17 @@
+async function handlePayment(productId) {
+    const response = await fetch('/create-checkout-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ product_id: productId })
+    });
+    
+    const data = await response.json();
+    if (data.url) {
+        window.location.href = data.url;
+    } else {
+        alert("Payment setup failed. Please try again.");
+    }
+}
 window.MASTER_CATALOG_DATA = [
     { name: "Godzilla (1954 First Appearance)", line: "Kaiju Series", mfg: "Toho Vinyls", year: "2022", rarity: "rare", icon: "Rex" },
     { name: "MechaGodzilla (Type-3 Kiryu)", line: "Mecha Waves", mfg: "Bandai Spirits", year: "2024", rarity: "grail", icon: "robot" },
