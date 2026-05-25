@@ -2,6 +2,9 @@ import os
 import json
 import uvicorn
 import contextvars
+import stripe
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
 from fastapi import FastAPI, UploadFile, File, Request, HTTPException
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -13,6 +16,11 @@ from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 from google import genai
 from google.genai import types
+
+stripe.api_key = os.environ.get("STRIPE_SECRET_KEY")
+
+class CheckoutRequest(BaseModel):
+    product_id: str
 
 # --- Pydantic Model ---
 class FigureIdentity(BaseModel):
@@ -52,6 +60,24 @@ app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], all
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # --- API Routes ---
+
+@app.post("/create-checkout-session")
+async def create_checkout(request: CheckoutRequest):
+    try:
+        # Create the session
+        session = stripe.checkout.Session.create(
+            payment_method_types=['card'],
+            line_items=[{
+                'price': request.product_id, # Use a Price ID from your Stripe dashboard
+                'quantity': 1,
+            }],
+            mode='payment',
+            success_url="https://yourdomain.com/success",
+            cancel_url="https://yourdomain.com/cancel",
+        )
+        return {"url": session.url}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 @app.post("/identify")
 @limiter.limit("3/hour;10/day", exempt_when=is_premium_user)
 async def identify_toy(request: Request, file: UploadFile = File(...)):
@@ -75,6 +101,7 @@ async def identify_toy(request: Request, file: UploadFile = File(...)):
         return JSONResponse(content=json.loads(response.text))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Gemini processing failed: {str(e)}")
+
 
 # --- Static Files (Must be last) ---
 app.mount("/", StaticFiles(directory=".", html=True), name="static")
