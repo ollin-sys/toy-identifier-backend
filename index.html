@@ -1,76 +1,662 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>FigSeeker</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Figure Seeker | Collector Dashboard</title>
+    <style>
+        :root {
+            --bg-dark: #0b0f12;
+            --panel-bg: rgba(30, 37, 43, 0.7);
+            --panel-border: rgba(46, 55, 64, 0.5);
+            --accent-teal: #14b8a6;
+            --accent-glow: rgba(20, 184, 166, 0.15);
+            --text-main: #f3f4f6;
+            --text-muted: #9ca3af;
+            --glass-blur: blur(12px);
+        }
+
+        * { 
+            box-sizing: border-box; 
+            margin: 0; 
+            padding: 0; 
+            font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif; 
+        }
+        
+        body { 
+            background: radial-gradient(circle at 50% 0%, #1a242d 0%, var(--bg-dark) 70%);
+            color: var(--text-main); 
+            padding: 30px 20px; 
+            min-height: 100vh; 
+            letter-spacing: -0.01em;
+        }
+
+        /* Top Navigation Bar */
+        header { 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            padding-bottom: 20px; 
+            border-bottom: 1px solid var(--panel-border); 
+            margin-bottom: 40px; 
+            max-width: 1400px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        .logo { 
+            font-size: 22px; 
+            font-weight: 800; 
+            color: var(--text-main); 
+            display: flex; 
+            align-items: center; 
+            gap: 8px; 
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+        .logo span { 
+            color: var(--accent-teal); 
+            text-shadow: 0 0 15px var(--accent-glow);
+        }
+        nav { display: flex; gap: 24px; }
+        nav a { 
+            color: var(--text-muted); 
+            text-decoration: none; 
+            font-size: 14px; 
+            font-weight: 600; 
+            transition: all 0.2s ease; 
+            position: relative;
+            padding: 4px 0;
+            cursor: pointer;
+        }
+        nav a.active, nav a:hover { color: var(--accent-teal); }
+        nav a.active::after {
+            content: '';
+            position: absolute;
+            bottom: -21px;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            background: var(--accent-teal);
+            box-shadow: 0 0 10px var(--accent-teal);
+        }
+
+        /* View Switching Logic Utilities */
+        .app-view { display: none; }
+        .app-view.active-view { display: block; }
+
+        /* Dashboard Layout Grid */
+        .dashboard-grid { display: grid; grid-template-columns: 1.8fr 1.2fr; gap: 30px; max-width: 1400px; margin: 0 auto 30px auto; }
+        .left-column, .right-column { display: flex; flex-direction: column; gap: 30px; }
+
+        /* Panels (Acrylic Glassmorphism) */
+        .panel { 
+            background: var(--panel-bg); 
+            backdrop-filter: var(--glass-blur);
+            -webkit-backdrop-filter: var(--glass-blur);
+            border: 1px solid var(--panel-border); 
+            border-radius: 16px; 
+            padding: 30px; 
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+            transition: border-color 0.3s ease, box-shadow 0.3s ease;
+        }
+        .panel:hover {
+            border-color: rgba(20, 184, 166, 0.3);
+            box-shadow: 0 8px 32px 0 rgba(20, 184, 166, 0.05);
+        }
+        .panel-title { 
+            font-size: 16px; 
+            font-weight: 700; 
+            margin-bottom: 20px; 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: rgba(255,255,255,0.9);
+        }
+
+        /* Upload Container Elements */
+        .upload-zone { 
+            border: 2px dashed rgba(75, 85, 99, 0.4); 
+            border-radius: 12px; 
+            padding: 50px 20px; 
+            text-align: center; 
+            cursor: pointer; 
+            background: rgba(0,0,0,0.15); 
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); 
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        .upload-zone:hover { 
+            border-color: var(--accent-teal); 
+            background: var(--accent-glow);
+            transform: scale(0.99);
+        }
+        .upload-icon { font-size: 44px; color: var(--text-muted); margin-bottom: 14px; transition: transform 0.3s ease; }
+        .upload-zone:hover .upload-icon { transform: translateY(-4px); color: var(--accent-teal); }
+        
+        /* Fixed image centering rules */
+        #imagePreview { 
+            max-width: 100%; 
+            max-height: 240px; 
+            border-radius: 8px; 
+            margin-top: 20px; 
+            display: none; 
+            object-fit: contain; 
+            box-shadow: 0 4px 20px rgba(0,0,0,0.4); 
+            border: 1px solid var(--panel-border); 
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        /* Form Controls */
+        .results-group { display: flex; flex-direction: column; gap: 16px; }
+        .input-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+        .field-box { display: flex; flex-direction: column; gap: 6px; }
+        .field-box label { font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.75px; }
+        .field-box input, .field-box textarea, .field-box select { background: rgba(0,0,0,0.25); border: 1px solid var(--panel-border); border-radius: 8px; padding: 12px; color: var(--text-main); font-size: 14px; width: 100%; transition: all 0.2s ease; }
+        .field-box input:focus, .field-box textarea:focus, .field-box select:focus { outline: none; border-color: var(--accent-teal); background: rgba(0,0,0,0.4); box-shadow: 0 0 10px rgba(20, 184, 166, 0.1); }
+        textarea { resize: vertical; min-height: 90px; }
+        select option { background-color: var(--bg-dark); color: var(--text-main); }
+
+        /* Standard Buttons */
+        .btn { background: var(--accent-teal); color: #040d0c; border: none; padding: 14px 20px; border-radius: 8px; font-weight: 700; cursor: pointer; width: 100%; font-size: 15px; transition: all 0.2s ease; margin-top: 10px; box-shadow: 0 4px 15px rgba(20, 184, 166, 0.2); }
+        .btn:hover { opacity: 0.95; transform: translateY(-1px); box-shadow: 0 6px 20px rgba(20, 184, 166, 0.3); }
+        .btn:disabled { background: #232b32; color: #52606d; cursor: not-allowed; box-shadow: none; transform: none; }
+
+        /* Notification & Promo Items */
+        .status-msg { font-size: 13px; text-align: center; color: var(--accent-teal); font-weight: 600; min-height: 20px; letter-spacing: 0.2px; }
+        .ad-banner { background: repeating-linear-gradient(45deg, rgba(24, 29, 34, 0.6), rgba(24, 29, 34, 0.6) 10px, rgba(30, 37, 43, 0.6) 10px, rgba(30, 37, 43, 0.6) 20px); backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur); border: 1px dashed rgba(75, 85, 99, 0.5); border-radius: 12px; text-align: center; padding: 24px; color: var(--text-muted); font-size: 13px; font-weight: 500; transition: opacity 0.2s ease-in-out; box-shadow: inset 0 0 20px rgba(0,0,0,0.2); }
+        
+        .pro-card { background: linear-gradient(135deg, #131c2a 0%, #090d14 100%); border: 1px solid rgba(234, 179, 8, 0.2); border-radius: 16px; padding: 25px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.5); position: relative; overflow: hidden; }
+        .pro-btn { background: linear-gradient(90deg, #ca8a04 0%, #facc15 100%); color: #090d14; font-weight: 700; border-radius: 8px; padding: 12px; width: 100%; border: none; margin-top: 16px; cursor: pointer; transition: all 0.2s ease; }
+
+        /* Card Display Layout Grids (Shared Components) */
+        .shelf-grid, .catalog-grid, .collection-vault-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; margin-top: 15px; }
+        
+        .item-display-card {
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--panel-border);
+            border-radius: 12px;
+            padding: 16px;
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            position: relative;
+            overflow: hidden;
+            animation: spawnFadeIn 0.4s ease forwards;
+        }
+        .item-thumb { width: 60px; height: 60px; background: rgba(255,255,255,0.05); border-radius: 8px; font-size: 24px; display: flex; align-items: center; justify-content: center; border: 1px solid rgba(255,255,255,0.1); flex-shrink: 0; }
+        .item-details { display: flex; flex-direction: column; gap: 2px; overflow: hidden; width: 100%; }
+        .item-details h5 { font-size: 14px; font-weight: 700; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .item-details p { font-size: 12px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .item-tag { font-size: 10px; background: rgba(255,255,255,0.07); color: var(--text-muted); padding: 2px 6px; border-radius: 4px; width: fit-content; margin-top: 4px; font-weight: 600; }
+
+        /* 🔒 Paywall Lock Blurs */
+        .item-display-card.locked::before { content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px); z-index: 2; }
+        .item-display-card.locked::after { content: '🔒 UNLOCK SLOT'; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: linear-gradient(90deg, #ca8a04, #facc15); color: #000; font-size: 10px; font-weight: 800; padding: 4px 8px; border-radius: 4px; z-index: 3; letter-spacing: 0.5px; }
+
+        /* Catalog Layout Additions */
+        .catalog-container, .collection-container { max-width: 1400px; margin: 0 auto 50px auto; }
+        .catalog-filter-bar { display: flex; gap: 16px; margin-bottom: 25px; align-items: flex-end; }
+        .rarity-badge { font-size: 10px; font-weight: 800; padding: 2px 6px; border-radius: 4px; margin-left: auto; text-transform: uppercase; }
+        .rarity-common { background: rgba(156, 163, 175, 0.15); color: #9ca3af; }
+        .rarity-rare { background: rgba(20, 184, 166, 0.15); color: var(--accent-teal); }
+        .rarity-grail { background: rgba(234, 179, 8, 0.15); color: #facc15; border: 1px solid rgba(234, 179, 8, 0.3); }
+
+        /* ================= NEW COLLECTION VAULT APP CSS ================= */
+        .vault-header-stats { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; padding-bottom: 15px; border-bottom: 1px solid var(--panel-border); }
+        .vault-progress-box { flex-grow: 1; max-width: 400px; margin-left: 30px; }
+        .vault-progress-text { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 6px; font-weight: 600; color: var(--text-muted); }
+        .vault-progress-track { width: 100%; height: 8px; background: rgba(0,0,0,0.3); border-radius: 4px; overflow: hidden; border: 1px solid var(--panel-border); }
+        .vault-progress-fill { width: 0%; height: 100%; background: var(--accent-teal); transition: width 0.5s ease; box-shadow: 0 0 10px var(--accent-teal); }
+
+        /* Community View Placeholder Styling */
+        .community-container { max-width: 1400px; margin: 0 auto 50px auto; }
+
+        @keyframes spawnFadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
 </head>
 <body>
-    <input type="text" id="catalogSearch" placeholder="Search assets...">
-    
-    <select id="catalogLineFilter">
-        <option value="ALL">All Lines</option>
-        </select>
 
-    <div id="catalogGrid"></div>
+    <header>
+        <div class="logo">FIGURE<span>SEEKER</span></div>
+        <nav id="appNavBar">
+            <a id="navDashboard" class="active">Dashboard</a>
+            <a id="navCatalog">Catalog</a>
+            <a id="navCollection">Collection</a>
+            <a id="navCommunity">Community</a>
+        </nav>
+    </header>
 
-    <script src="catalog.js"></script>
-    <script>
-        // Your existing JS code...
-    </script>
-</body>
-...
-<script src="catalog.js"></script>
-<script>
-// 1. Define the function first (do not run it yet)
-function renderCatalogGridUI() {
-    const catalogGrid = document.getElementById('catalogGrid');
-    const catalogSearch = document.getElementById('catalogSearch');
-    const catalogLineFilter = document.getElementById('catalogLineFilter');
-    
-    // Safety check: exit if elements don't exist yet
-    if (!catalogGrid || !catalogSearch) return;
+    <input type="file" id="fileInput" accept="image/*" style="display: none;">
 
-    catalogGrid.innerHTML = '';
-    const keyword = catalogSearch.value.toLowerCase().trim();
-    const selectedFilter = catalogLineFilter.value;
+    <div id="dashboardView" class="app-view active-view">
+        <div class="dashboard-grid">
+            <div class="left-column">
+                <div class="panel">
+                    <div class="panel-title">Identification Hub</div>
+                    <div class="upload-zone" id="uploadZone">
+                        <div class="upload-icon">📷</div>
+                        <p style="font-weight: 500;">Drag figure photo or click to browse</p>
+                        <p style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">Preferred Shot: Clear lighting, neutral background</p>
+                        <img id="imagePreview" alt="Upload Preview">
+                    </div>
+                    <button class="btn" id="scanBtn" disabled>Identify Figure</button>
+                    <div class="status-msg" id="statusMsg" style="margin-top: 15px;"></div>
+                </div>
 
-    const filteredData = window.MASTER_CATALOG_DATA.filter(item => {
-        const matchesKeyword = item.name.toLowerCase().includes(keyword) || item.mfg.toLowerCase().includes(keyword);
-        const matchesFilter = selectedFilter === "ALL" || item.line === selectedFilter;
-        return matchesKeyword && matchesFilter;
-    });
-
-    if (filteredData.length === 0) {
-        catalogGrid.innerHTML = `<p style="grid-column: 1/-1; text-align: center;">No matching database assets cataloged.</p>`;
-        return;
-    }
-
-    filteredData.forEach(item => {
-        const card = document.createElement('div');
-        card.classList.add('item-display-card');
-        card.innerHTML = `
-            <div class="item-thumb">${item.icon}</div>
-            <div class="item-details">
-                <h5>${item.name}</h5>
-                <p>${item.mfg} • ${item.year}</p>
+                <div class="ad-banner community-ad-zone" id="adZone1">
+                    <span style="background: #374151; padding: 2px 6px; border-radius: 4px; font-size: 10px; margin-right: 8px;">ADVERTISEMENT</span>
+                    <span class="ad-content">Loading community sponsorship...</span>
+                </div>
             </div>
-        `;
-        catalogGrid.appendChild(card);
-    });
-}
 
-// 2. WAIT for the page to be ready before attaching listeners
-document.addEventListener('DOMContentLoaded', () => {
-    // Now it is safe to look for the elements
-    const catalogSearch = document.getElementById('catalogSearch');
-    const catalogLineFilter = document.getElementById('catalogLineFilter');
+            <div class="right-column">
+                <div class="panel">
+                    <div class="panel-title">AI Results <span style="font-size: 12px; color: var(--accent-teal); background: var(--accent-glow); padding: 2px 8px; border-radius: 12px;">Beta</span></div>
+                    <div class="results-group">
+                        <div class="field-box">
+                            <label>Character Name</label>
+                            <input type="text" id="resName" placeholder="Waiting for scan...">
+                        </div>
+                        <div class="input-row">
+                            <div class="field-box">
+                                <label>Toy Line / Series</label>
+                                <input type="text" id="resLine" placeholder="...">
+                            </div>
+                            <div class="field-box">
+                                <label>Release Year</label>
+                                <input type="text" id="resYear" placeholder="...">
+                            </div>
+                        </div>
+                        <div class="field-box">
+                            <label>Manufacturer</label>
+                            <input type="text" id="resMfg" placeholder="...">
+                        </div>
+                        <div class="field-box">
+                            <label>Variant & Unique Details</label>
+                            <textarea id="resVariant" placeholder="..."></textarea>
+                        </div>
+                        <button class="btn" id="exportCsvBtn" style="background: #232b32; color: #52606d; margin-top: 15px;" disabled>
+                            🔒 Export Spreadsheet (Unlock for $0.99)
+                        </button>
+                    </div>
+                </div>
 
-    if (catalogSearch && catalogLineFilter) {
+                <div class="pro-card">
+                    <h4 style="color: #eab308; font-size: 16px; margin-bottom: 4px;">⭐ Expand Your Showcase</h4>
+                    <p style="font-size: 13px; color: var(--text-muted);">Pay a one-time fee of <strong>$0.99</strong> to expand your inventory limit from 20 to 1,000 figures and unlock spreadsheet exporting.</p>
+                    <button class="pro-btn" id="proUpgradeBtn">Unlock 1,000 Slots ($0.99)</button>
+                </div>
+
+                <div class="ad-banner community-ad-zone" id="adZone2" style="padding: 40px 15px;">
+                    <span style="background: #374151; padding: 2px 6px; border-radius: 4px; font-size: 10px; margin-right: 8px;">ADVERTISEMENT</span>
+                    <span class="ad-content">Loading context banner...</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="panel" style="max-width: 1400px; margin: 0 auto 50px auto;">
+            <div class="panel-title">Recent Scans Preview</div>
+            <div class="shelf-grid" id="shelfGrid"></div>
+        </div>
+    </div>
+
+    <div id="catalogView" class="app-view catalog-container panel">
+        <div class="panel-title">📚 Master Figure Catalog Archive</div>
+        <div class="catalog-filter-bar">
+            <div class="field-box" style="flex: 2;">
+                <label>Search Keyword</label>
+                <input type="text" id="catalogSearch" placeholder="Type figure name, wave, or mfg...">
+            </div>
+            <div class="field-box" style="flex: 1;">
+                <label>Line Filter</label>
+                <select id="catalogLineFilter">
+                    <option value="ALL">All Categories</option>
+                    <option value="Kaiju Series">Kaiju Series</option>
+                    <option value="Mecha Waves">Mecha Waves</option>
+                    <option value="MonsterArts">S.H. MonsterArts</option>
+                    <option value="Kanto Region">Kanto Region</option>
+                </select>
+            </div>
+        </div>
+        <div class="catalog-grid" id="catalogGrid"></div>
+    </div>
+
+    <div id="collectionView" class="app-view collection-container panel">
+        <div class="vault-header-stats">
+            <div>
+                <h3 style="font-size: 20px; font-weight: 800; color: #fff;">🛡️ My Figure Vault</h3>
+                <p style="font-size: 13px; color: var(--text-muted); margin-top: 2px;">Domain: <span style="color: var(--accent-teal)">figseeker.com</span></p>
+            </div>
+            
+            <div class="vault-progress-box">
+                <div class="vault-progress-text">
+                    <span id="vaultStatusLabel">Account Capacity: Free Tier</span>
+                    <span id="vaultFractionLabel">0 / 20</span>
+                </div>
+                <div class="vault-progress-track">
+                    <div class="vault-progress-fill" id="vaultProgressFill"></div>
+                </div>
+            </div>
+
+            <button class="btn" id="vaultClearBtn" style="width: auto; background: #ef4444; color: #fff; margin: 0; padding: 10px 20px;">Clear Vault</button>
+        </div>
+
+        <div class="collection-vault-grid" id="collectionVaultGrid">
+            </div>
+    </div>
+
+    <div id="communityView" class="app-view community-container panel">
+        <div class="panel-title">💬 Collector Community Hub</div>
+        <div style="text-align: center; color: var(--text-muted); padding: 60px 20px;">
+            <span style="font-size: 40px;">🌐</span>
+            <h3 style="color: #fff; margin-top: 10px; margin-bottom: 8px;">Forums & Trade Lobbies Status: Offline</h3>
+            <p style="font-size: 14px;">The public trade boards and community discussion forums are synchronization targets inside the next build milestone.</p>
+        </div>
+    </div>
+
+   <script src="catalog.js"></script>
+
+    <script>
+        const BACKEND_URL = window.location.origin;
+
+        // DOM Handles
+        const uploadZone = document.getElementById('uploadZone');
+        const fileInput = document.getElementById('fileInput');
+        const scanBtn = document.getElementById('scanBtn');
+        const imagePreview = document.getElementById('imagePreview');
+        const statusMsg = document.getElementById('statusMsg');
+        const exportCsvBtn = document.getElementById('exportCsvBtn');
+        const shelfGrid = document.getElementById('shelfGrid');
+        
+        // Navigation View Switchers
+        const navDashboard = document.getElementById('navDashboard');
+        const navCatalog = document.getElementById('navCatalog');
+        const navCollection = document.getElementById('navCollection');
+        const navCommunity = document.getElementById('navCommunity');
+        
+        const dashboardView = document.getElementById('dashboardView');
+        const catalogView = document.getElementById('catalogView');
+        const collectionView = document.getElementById('collectionView');
+        const communityView = document.getElementById('communityView');
+
+        // Vault View Targets
+        const collectionVaultGrid = document.getElementById('collectionVaultGrid');
+        const vaultStatusLabel = document.getElementById('vaultStatusLabel');
+        const vaultFractionLabel = document.getElementById('vaultFractionLabel');
+        const vaultProgressFill = document.getElementById('vaultProgressFill');
+        const vaultClearBtn = document.getElementById('vaultClearBtn');
+
+        // Catalog System Elements
+        const catalogSearch = document.getElementById('catalogSearch');
+        const catalogLineFilter = document.getElementById('catalogLineFilter');
+        const catalogGrid = document.getElementById('catalogGrid');
+
+        // State Machine Tracking Parameters
+        let isUserPremium = false;
+        let collectionMaxLimit = 20; 
+        let scannedCollectionHistory = [];
+
+       
+
+        // ================= VIEW NAVIGATION MANAGEMENT =================
+        function switchView(activeNav, activeView) {
+            [navDashboard, navCatalog, navCollection, navCommunity].forEach(nav => nav.classList.remove('active'));
+            [dashboardView, catalogView, collectionView, communityView].forEach(view => view.classList.remove('app-view', 'active-view'));
+            
+            // Re-apply core structures safely
+            dashboardView.classList.add('app-view');
+            catalogView.classList.add('app-view');
+            collectionView.classList.add('app-view');
+            communityView.classList.add('app-view');
+
+            activeNav.classList.add('active');
+            activeView.classList.add('active-view');
+        }
+
+        navDashboard.addEventListener('click', () => switchView(navDashboard, dashboardView));
+        navCatalog.addEventListener('click', () => { switchView(navCatalog, catalogView); renderCatalogGridUI(); });
+        navCollection.addEventListener('click', () => { switchView(navCollection, collectionView); renderFullVaultUI(); });
+        navCommunity.addEventListener('click', () => switchView(navCommunity, communityView));
+
+        // ================= DATA LOGGING SUBSYSTEMS =================
+        function initializeVaultStorage() {
+            const savedData = localStorage.getItem('figseeker_vault_inventory');
+            if (savedData) scannedCollectionHistory = JSON.parse(savedData);
+            renderDashboardPreviewShelf();
+        }
+
+        // Dashboard Miniature Feed Render
+        function renderDashboardPreviewShelf() {
+            shelfGrid.innerHTML = '';
+            if (scannedCollectionHistory.length === 0) {
+                shelfGrid.innerHTML = `<p style="color: var(--text-muted); font-size: 13px;">No scans executed yet. Run a figure trace above to start inventory logging.</p>`;
+                return;
+            }
+            const recentScans = [...scannedCollectionHistory].reverse().slice(0, 4);
+            recentScans.forEach((item) => {
+                const card = document.createElement('div');
+                card.classList.add('item-display-card');
+                card.innerHTML = `<div class="item-thumb">🧸</div><div class="item-details"><h5>${item.name}</h5><p>${item.line}</p></div>`;
+                shelfGrid.appendChild(card);
+            });
+        }
+
+        // Full Interactive Vault Page Layout Render Engine
+        function renderFullVaultUI() {
+            collectionVaultGrid.innerHTML = '';
+            
+            const count = scannedCollectionHistory.length;
+            vaultFractionLabel.innerText = `${count} / ${collectionMaxLimit}`;
+            
+            const percentage = Math.min((count / collectionMaxLimit) * 100, 100);
+            vaultProgressFill.style.width = `${percentage}%`;
+
+            if (count === 0) {
+                collectionVaultGrid.innerHTML = `<p style="grid-column: 1/-1; text-align: center; color: var(--text-muted); padding: 40px 0;">Your figure vault is currently empty. Head over to the dashboard to scan an item!</p>`;
+                return;
+            }
+
+            scannedCollectionHistory.forEach((item, index) => {
+                const card = document.createElement('div');
+                card.classList.add('item-display-card');
+
+                if (!isUserPremium && index >= 20) {
+                    card.classList.add('locked');
+                }
+
+                card.innerHTML = `
+                    <div class="item-thumb">🛡️</div>
+                    <div class="item-details">
+                        <h5>${item.name}</h5>
+                        <p>${item.mfg} • ${item.year}</p>
+                        <div class="item-tag">${item.line}</div>
+                    </div>
+                `;
+                collectionVaultGrid.appendChild(card);
+            });
+        }
+
+        // ================= TRACE AND IMAGE ACQUISITION LOGIC =================
+        uploadZone.addEventListener('click', () => {
+            fileInput.click();
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (event) => { 
+                    imagePreview.src = event.target.result; 
+                    imagePreview.style.display = 'block'; 
+                };
+                reader.readAsDataURL(file);
+                scanBtn.disabled = false;
+                statusMsg.style.color = 'var(--accent-teal)'; 
+                statusMsg.innerText = "Target footprint verified. Core array ready to scan.";
+            }
+        });
+
+        scanBtn.addEventListener('click', async () => {
+            const file = fileInput.files[0];
+            if (!file) return;
+            const formData = new FormData();
+            formData.append('file', file);
+            scanBtn.disabled = true;
+            statusMsg.style.color = 'var(--accent-teal)'; 
+            statusMsg.innerText = "🤖 Querying Gemini Cloud Interface Core API...";
+
+            try {
+                const checkPremiumStatus = localStorage.getItem('vault_unlocked') === 'true';
+                const response = await fetch(`${BACKEND_URL}/identify`, { 
+                    method: 'POST', 
+                    body: formData,
+                    headers: {
+                        'X-User-Tier': checkPremiumStatus ? 'premium' : 'free',
+                        'X-Auth-Token': checkPremiumStatus ? 'FIGSEEKER_PREMIUM_KEY_Pa$$1' : ''
+                    }
+                });
+                
+                if (response.status === 429) {
+                    statusMsg.style.color = '#eab308'; 
+                    statusMsg.innerHTML = `⚠️ Quota Exhausted. Please retry shortly or upgrade to expand slot limits.`;
+                    return; 
+                }
+                
+                if (!response.ok) throw new Error(`Fetch pipeline failure code: ${response.status}`);
+                const data = await response.json();
+                
+                document.getElementById('resName').value = data.character_name || '';
+                document.getElementById('resLine').value = data.toy_line || '';
+                document.getElementById('resYear').value = data.release_year || '';
+                document.getElementById('resMfg').value = data.manufacturer || '';
+                document.getElementById('resVariant').value = data.variant_details || '';
+
+                scannedCollectionHistory.push({
+                    name: data.character_name || 'Unknown Identification',
+                    line: data.toy_line || 'Unknown Series Line',
+                    year: data.release_year || 'N/A',
+                    mfg: data.manufacturer || 'Unknown',
+                    variant: (data.variant_details || 'None').replace(/,/g, ';')
+                });
+
+                localStorage.setItem('figseeker_vault_inventory', JSON.stringify(scannedCollectionHistory));
+                renderDashboardPreviewShelf();
+                
+                statusMsg.style.color = 'var(--accent-teal)'; 
+                statusMsg.innerText = `Identification complete. Target logged inside storage.`;
+            } catch (error) {
+                console.error(error);
+                statusMsg.style.color = '#ef4444'; 
+                statusMsg.innerText = `Network Pipe Failure: ${error.message}`;
+            } finally {
+                scanBtn.disabled = false;
+            }
+        });
+
+        // ================= SUBSCRIPTION CONVERSION TRIGGER ENGINE =================
+        const proUpgradeBtn = document.getElementById('proUpgradeBtn');
+        proUpgradeBtn.addEventListener('click', () => {
+            isUserPremium = !isUserPremium; 
+            if (isUserPremium) {
+                document.querySelectorAll('.community-ad-zone').forEach(zone => zone.style.display = 'none');
+                collectionMaxLimit = 1000;
+
+                proUpgradeBtn.innerText = "✨ Vault Unlocked (1,000 Slots)";
+                proUpgradeBtn.style.background = "linear-gradient(90deg, #14b8a6 0%, #0d9488 100%)";
+                
+                exportCsvBtn.disabled = false;
+                exportCsvBtn.innerText = "📊 Download Spreadsheet Export";
+                exportCsvBtn.style.background = "var(--accent-teal)";
+                exportCsvBtn.style.color = "#000";
+
+                vaultStatusLabel.innerText = "Account Capacity: Premium Tier";
+                vaultStatusLabel.style.color = "var(--accent-teal)";
+
+                renderFullVaultUI();
+                alert("🎉 Welcome to Figure Seeker Pro! Your inventory limit has been raised to 1,000 slots and spreadsheet downloads have been activated.");
+            } else {
+                window.location.reload();
+            }
+        });
+
+        exportCsvBtn.addEventListener('click', () => {
+            if (!isUserPremium) return; 
+            if (scannedCollectionHistory.length === 0) { alert("Vault records are empty."); return; }
+            
+            let csvContent = "data:text/csv;charset=utf-8,Character Name,Toy Line,Release Year,Manufacturer,Variant Details\n";
+            scannedCollectionHistory.forEach(item => {
+                csvContent += `"${item.name}","${item.line}","${item.year}","${item.mfg}","${item.variant}"\n`;
+            });
+            const encodedUri = encodeURI(csvContent);
+            const downloadLink = document.createElement("a");
+            downloadLink.setAttribute("href", encodedUri);
+            downloadLink.setAttribute("download", "figureseeker_vault_export.csv");
+            document.body.appendChild(downloadLink);
+            downloadLink.click();
+            document.body.removeChild(downloadLink);
+        });
+
+        // Master Archive Search Configurations
+	function renderCatalogGridUI() {
+            catalogGrid.innerHTML = '';
+            const keyword = catalogSearch.value.toLowerCase().trim();
+            const selectedFilter = catalogLineFilter.value;
+
+            //  FIXED: Removed the scrambled array comment text
+            const filteredData = window.MASTER_CATALOG_DATA.filter(item => {
+                const matchesKeyword = item.name.toLowerCase().includes(keyword) || item.mfg.toLowerCase().includes(keyword);
+                const matchesFilter = selectedFilter === "ALL" || item.line === selectedFilter;
+                return matchesKeyword && matchesFilter;
+            });
+
+            if (filteredData.length === 0) {
+                catalogGrid.innerHTML = `<p style="grid-column: 1/-1; text-align: center; color: var(--text-muted); padding: 20px 0;">No matching database assets cataloged.</p>`;
+                return;
+            }
+
+            // Completed the loop and properly built the card generation strings
+            filteredData.forEach(item => {
+                const card = document.createElement('div');
+                card.classList.add('item-display-card');
+                card.innerHTML = `
+                    <div class="item-thumb">${item.icon}</div>
+                    <div class="item-details">
+                        <div style="display: flex; align-items: center; width: 100%;">
+                            <h5>${item.name}</h5>
+                            <span class="rarity-badge rarity-${item.rarity}">${item.rarity}</span>
+                        </div>
+                        <p>${item.mfg} • ${item.year}</p>
+                        <div class="item-tag">${item.line}</div>
+                    </div>
+                `;
+                catalogGrid.appendChild(card);
+            });
+        }
+
+        // Attach event listeners for typing or filtering inside the Master Archive
         catalogSearch.addEventListener('input', renderCatalogGridUI);
         catalogLineFilter.addEventListener('change', renderCatalogGridUI);
-        
-        // Run once on load to show initial data
-        renderCatalogGridUI();
-    }
-});
-</script>
+
+        // Vault clear management logic configuration 
+        vaultClearBtn.addEventListener('click', () => {
+            if (confirm("⚠️ Are you sure you want to delete all figures from your local vault cache? This cannot be undone.")) {
+                scannedCollectionHistory = [];
+                localStorage.removeItem('figseeker_vault_inventory');
+                renderDashboardPreviewShelf();
+                renderFullVaultUI();
+            }
+        });
+
+        // Initialize user database states upon system startup
+        initializeVaultStorage();
+    </script>
+</body>
+</html>
